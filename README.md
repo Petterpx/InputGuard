@@ -13,8 +13,8 @@
 
 ## 使用
 
-1. `./Scripts/build-app.sh`，把 `build/DoubaoVoiceRestore.app` 拖到「应用程序」。
-2. 打开它，菜单栏出现「豆」。**不需要任何权限**。
+1. 从 [Releases](https://github.com/Petterpx/DoubaoVoiceRestore/releases) 下载 dmg，打开后把应用拖到「应用程序」；或自己构建：`./Scripts/build-app.sh && ./Scripts/make-dmg.sh`。
+2. 打开它，菜单栏出现一个键盘图标。**不需要任何权限**。
 3. 在豆包里照常用你的全局语音键（比如右 Option 按住说话）。说完松开，约 0.6 秒后自动回到原输入法。
 
 菜单项：

@@ -15,7 +15,7 @@ final class StatusMenu: NSObject {
         self.controller = controller
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
-        statusItem.button?.title = "豆"
+        statusItem.button?.image = Self.symbol("keyboard.fill")
         statusItem.button?.toolTip = "豆包回切"
         statusItem.menu = buildMenu()
         controller.statusDidChange = { [weak self] status, title in
@@ -99,13 +99,24 @@ final class StatusMenu: NSObject {
 
     private func apply(status: RestoreStatus, title: String) {
         statusLine.title = title
+        let name: String
         switch status {
-        case .recording: statusItem.button?.title = "🎙"
-        case .waitingForCommit: statusItem.button?.title = "…"
-        case .paused: statusItem.button?.title = "豆⏸"
-        case .audioUnavailable, .restoreFailed: statusItem.button?.title = "豆!"
-        default: statusItem.button?.title = "豆"
+        case .recording: name = "waveform"
+        case .waitingForCommit: name = "keyboard.badge.ellipsis.fill"
+        case .paused: name = "keyboard"                 // 空心 = 关，macOS 惯例
+        case .audioUnavailable, .restoreFailed: name = "exclamationmark.triangle.fill"
+        default: name = "keyboard.fill"
         }
+        statusItem.button?.image = Self.symbol(name)
+    }
+
+    /// 菜单栏图标按 HIG 用 SF Symbol 模板图：单色、随浅深色菜单栏反色、与系统图标同尺寸线宽。
+    private static func symbol(_ name: String) -> NSImage? {
+        let config = NSImage.SymbolConfiguration(pointSize: 16, weight: .medium)
+        let image = NSImage(systemSymbolName: name, accessibilityDescription: "豆包回切")?
+            .withSymbolConfiguration(config)
+        image?.isTemplate = true
+        return image
     }
 
     @objc private func restoreNow() { controller.restoreNow() }

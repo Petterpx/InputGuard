@@ -13,6 +13,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/$APP_NAME"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 echo -n "APPL????" > "$APP/Contents/PkgInfo"
 
 IDENTITY="${CODE_SIGN_IDENTITY:--}"
