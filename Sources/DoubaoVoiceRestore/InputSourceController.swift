@@ -39,6 +39,14 @@ final class InputSourceController {
         enabledSources().first { !$0.id.hasPrefix(Self.doubaoPrefix) }?.id
     }
 
+    func nonDoubaoEnabledSources() -> [InputSourceInfo] {
+        enabledSources().filter { !$0.id.hasPrefix(Self.doubaoPrefix) }
+    }
+
+    func isEnabled(id: String) -> Bool {
+        enabledSources().contains { $0.id == id }
+    }
+
     @discardableResult
     func select(id: String) -> Bool {
         guard let source = allSources().first(where: { stringProperty($0, kTISPropertyInputSourceID) == id }) else {

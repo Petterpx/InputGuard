@@ -42,8 +42,15 @@ public enum RestoreAction: Equatable {
 public struct RestoreStateMachine {
     public var config: RestoreConfig
     public var paused: Bool = false
+    /// 用户指定的固定切回目标。nil 表示切回上一个使用的输入源。
+    public var pinnedSourceID: String?
     public var fallbackSourceID: String?
     public private(set) var lastNonDoubaoSourceID: String?
+
+    /// 切回目标解析顺序：指定的 → 上一个使用的 → 回退源。
+    public var restoreTargetID: String? {
+        pinnedSourceID ?? lastNonDoubaoSourceID ?? fallbackSourceID
+    }
     public private(set) var status: RestoreStatus = .waiting
 
     private enum Phase: Equatable {
@@ -141,7 +148,7 @@ public struct RestoreStateMachine {
                 status = .waiting
                 return .none
             }
-            guard let target = lastNonDoubaoSourceID ?? fallbackSourceID else {
+            guard let target = restoreTargetID else {
                 status = .restoreFailed("没有可切回的输入源")
                 return .none
             }

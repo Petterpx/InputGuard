@@ -9,6 +9,7 @@ final class StatusMenu: NSObject {
     private let pauseItem = NSMenuItem(title: "暂停自动切回", action: #selector(togglePause), keyEquivalent: "")
     private let launchItem = NSMenuItem(title: "开机启动", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
     private var graceItems: [(NSMenuItem, TimeInterval)] = []
+    private let targetMenu = NSMenu()
 
     init(controller: RestoreController) {
         self.controller = controller
@@ -48,6 +49,13 @@ final class StatusMenu: NSObject {
         let graceParent = NSMenuItem(title: "切回前等待", action: nil, keyEquivalent: "")
         graceParent.submenu = graceMenu
         menu.addItem(graceParent)
+
+        // 每次展开时重建：用户可能刚在系统设置里增删了输入法。
+        targetMenu.delegate = self
+        rebuildTargetMenu()
+        let targetParent = NSMenuItem(title: "切回到", action: nil, keyEquivalent: "")
+        targetParent.submenu = targetMenu
+        menu.addItem(targetParent)
         menu.addItem(.separator())
 
         launchItem.target = self
@@ -63,6 +71,30 @@ final class StatusMenu: NSObject {
         quitItem.target = self
         menu.addItem(quitItem)
         return menu
+    }
+
+    private func rebuildTargetMenu() {
+        targetMenu.removeAllItems()
+        let pinned = controller.pinnedSourceID
+
+        let lastUsed = NSMenuItem(title: "上一个使用的输入法", action: #selector(selectTarget(_:)), keyEquivalent: "")
+        lastUsed.target = self
+        lastUsed.state = pinned == nil ? .on : .off
+        targetMenu.addItem(lastUsed)
+        targetMenu.addItem(.separator())
+
+        var sources = controller.availableRestoreTargets()
+        if let pinned, !sources.contains(where: { $0.id == pinned }) {
+            // 指定的源已不在启用列表里：仍显示出来并标记，用户能看到为什么没生效。
+            sources.append(InputSourceInfo(id: pinned, name: "\(pinned)（已停用）"))
+        }
+        for source in sources {
+            let item = NSMenuItem(title: source.name, action: #selector(selectTarget(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = source.id
+            item.state = source.id == pinned ? .on : .off
+            targetMenu.addItem(item)
+        }
     }
 
     private func apply(status: RestoreStatus, title: String) {
@@ -82,6 +114,11 @@ final class StatusMenu: NSObject {
         let paused = !controller.isPaused
         controller.setPaused(paused)
         pauseItem.state = paused ? .on : .off
+    }
+
+    @objc private func selectTarget(_ sender: NSMenuItem) {
+        controller.setPinnedSource(sender.representedObject as? String)
+        rebuildTargetMenu()
     }
 
     @objc private func selectGrace(_ sender: NSMenuItem) {
@@ -112,5 +149,12 @@ final class StatusMenu: NSObject {
 
     @objc private func quit() {
         NSApp.terminate(nil)
+    }
+}
+
+extension StatusMenu: NSMenuDelegate {
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        guard menu === targetMenu else { return }
+        rebuildTargetMenu()
     }
 }

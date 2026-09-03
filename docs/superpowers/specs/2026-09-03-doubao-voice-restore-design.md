@@ -39,7 +39,9 @@ ChaseMoneyChaseFame/doubao-wetype-bridge 采用「纯观察」模型：读 CoreA
    （`sourceSettlePeriod`）时，记为 `lastNonDoubaoSourceID`。豆包唤起语音时输入源会先瞬间跳到 ABC
    键盘布局再进豆包（实测 40~150 ms），稳定期用来排除这个瞬态源。
 2. 豆包音频输入从占用变为释放，且此前连续占用 ≥ 0.2 s（`recordingConfirmationPeriod`），进入宽限期。
-3. 宽限期（`gracePeriod`，默认 0.6 s）到期时，若当前输入源仍是豆包，切到 `lastNonDoubaoSourceID`。
+3. 宽限期（`gracePeriod`，默认 0.6 s）到期时，若当前输入源仍是豆包，切到目标输入源。
+   目标解析顺序：用户指定的 `pinnedSourceID`（菜单「切回到」，持久化在 UserDefaults）→
+   `lastNonDoubaoSourceID` → 回退源。指定模式下仍持续记录 `lastNonDoubaoSourceID`。
    宽限期内音频再次被占用则取消宽限，回到录音中。宽限期内重入录音不需要再次满足 0.2 s 确认期。
 4. 切回后清空录音状态，等待下一次。
 
@@ -55,6 +57,7 @@ ChaseMoneyChaseFame/doubao-wetype-bridge 采用「纯观察」模型：读 CoreA
 | 豆包进程未运行 | 音频状态视为未占用 |
 | CoreAudio 读取失败 | 菜单栏显示「无法读取录音状态」，不切回 |
 | 暂停开关打开 | 只记录 `lastNonDoubaoSourceID`，不切回 |
+| 指定的输入源已被禁用或删除 | 退回 `lastNonDoubaoSourceID`，写日志；菜单里仍显示该项并标「已停用」 |
 
 ## 组件
 
@@ -116,6 +119,7 @@ ChaseMoneyChaseFame/doubao-wetype-bridge 采用「纯观察」模型：读 CoreA
 - 暂停时不触发
 - 音频 `nil` 时不触发
 - 无 `lastNonDoubaoSourceID` 时用回退源
+- 指定 `pinnedSourceID` 时优先于上一个使用的；清空后回到上一个使用的
 
 实机验证（用户机器，macOS 26.3，豆包 0.9.7，Apple 拼音为日常输入源）：
 1. 右 Option 说一句，松开后回到 Apple 拼音，文字完整上屏。

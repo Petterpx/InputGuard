@@ -152,6 +152,45 @@ final class RestoreStateMachineTests: XCTestCase {
         XCTAssertEqual(m.status, .restoreFailed("没有可切回的输入源"))
     }
 
+    func testPinnedSourceWinsOverLastUsed() {
+        var m = makeMachine()
+        let abc = "com.apple.keylayout.ABC"
+        m.pinnedSourceID = abc
+        runRecording(&m, duration: 1.0)                          // 录音前在拼音
+        XCTAssertEqual(m.lastNonDoubaoSourceID, pinyin, "指定模式下仍记录上一个使用的")
+        XCTAssertEqual(m.observe(sourceID: doubao, doubaoAudioActive: false, at: t(1.75)), .restore(to: abc))
+    }
+
+    func testClearingPinnedSourceFallsBackToLastUsed() {
+        var m = makeMachine()
+        m.pinnedSourceID = "com.apple.keylayout.ABC"
+        runRecording(&m, duration: 1.0)
+        m.pinnedSourceID = nil
+        XCTAssertEqual(m.observe(sourceID: doubao, doubaoAudioActive: false, at: t(1.75)), .restore(to: pinyin))
+    }
+
+    func testPinnedSourceUsedEvenWithoutAnyHistory() {
+        var m = makeMachine()
+        m.pinnedSourceID = "com.apple.keylayout.ABC"
+        _ = m.observe(sourceID: doubao, doubaoAudioActive: false, at: t(0))
+        _ = m.observe(sourceID: doubao, doubaoAudioActive: true, at: t(0.1))
+        _ = m.observe(sourceID: doubao, doubaoAudioActive: false, at: t(1.1))
+        XCTAssertEqual(
+            m.observe(sourceID: doubao, doubaoAudioActive: false, at: t(1.75)),
+            .restore(to: "com.apple.keylayout.ABC")
+        )
+    }
+
+    func testRestoreTargetResolvesInOrder() {
+        var m = RestoreStateMachine(config: RestoreConfig(), fallbackSourceID: "fallback")
+        XCTAssertEqual(m.restoreTargetID, "fallback")
+        _ = m.observe(sourceID: pinyin, doubaoAudioActive: false, at: t(0))
+        _ = m.observe(sourceID: pinyin, doubaoAudioActive: false, at: t(1))
+        XCTAssertEqual(m.restoreTargetID, pinyin)
+        m.pinnedSourceID = "pinned"
+        XCTAssertEqual(m.restoreTargetID, "pinned")
+    }
+
     func testDidRestoreUpdatesStatus() {
         var m = makeMachine()
         m.didRestore(to: pinyin, success: true)

@@ -26,15 +26,21 @@ final class RestoreController {
             fallbackSourceID: inputSources.firstNonDoubaoEnabledID()
         )
         machine.paused = settings.paused
+        machine.pinnedSourceID = settings.pinnedSourceID
         machine.reset()
     }
 
     var isPaused: Bool { machine.paused }
+    var pinnedSourceID: String? { machine.pinnedSourceID }
+
+    func availableRestoreTargets() -> [InputSourceInfo] {
+        inputSources.nonDoubaoEnabledSources()
+    }
 
     func start() {
         guard timer == nil else { return }
         RuntimeLog.shared.write(
-            "started; source=\(inputSources.currentID()); grace=\(settings.gracePeriod); paused=\(machine.paused)"
+            "started; source=\(inputSources.currentID()); grace=\(settings.gracePeriod); paused=\(machine.paused); pinned=\(machine.pinnedSourceID ?? "none")"
         )
         publishStatus()
         timer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
@@ -62,8 +68,15 @@ final class RestoreController {
         RuntimeLog.shared.write("gracePeriod=\(seconds)")
     }
 
+    /// nil = 切回上一个使用的输入源。
+    func setPinnedSource(_ id: String?) {
+        machine.pinnedSourceID = id
+        settings.pinnedSourceID = id
+        RuntimeLog.shared.write("pinnedSource=\(id ?? "none")")
+    }
+
     func restoreNow() {
-        let target = machine.lastNonDoubaoSourceID ?? inputSources.firstNonDoubaoEnabledID()
+        let target = machine.restoreTargetID ?? inputSources.firstNonDoubaoEnabledID()
         guard let target else {
             machine.didRestore(to: "没有可切回的输入源", success: false)
             publishStatus()
@@ -87,7 +100,19 @@ final class RestoreController {
         publishStatus()
     }
 
-    private func perform(restoreTo target: String, reason: String) {
+    private func perform(restoreTo requested: String, reason: String) {
+        var target = requested
+        if requested == machine.pinnedSourceID, !inputSources.isEnabled(id: requested) {
+            // 指定的输入源已在系统里被禁用或删除：退回上一个使用的，不让切回整个失效。
+            let alternative = machine.lastNonDoubaoSourceID ?? machine.fallbackSourceID
+            RuntimeLog.shared.write("pinned source unavailable; pinned=\(requested); using=\(alternative ?? "none")")
+            guard let alternative else {
+                machine.didRestore(to: requested, success: false)
+                publishStatus()
+                return
+            }
+            target = alternative
+        }
         let ok = inputSources.select(id: target)
         machine.didRestore(to: target, success: ok)
         RuntimeLog.shared.write("restore \(ok ? "ok" : "failed"); target=\(target); reason=\(reason)")
