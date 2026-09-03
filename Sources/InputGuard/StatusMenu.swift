@@ -15,7 +15,7 @@ final class StatusMenu: NSObject {
         self.controller = controller
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
-        statusItem.button?.image = Self.symbol("keyboard.fill")
+        statusItem.button?.image = Self.statusImage(badge: nil)
         statusItem.button?.toolTip = "InputGuard"
         statusItem.menu = buildMenu()
         controller.statusDidChange = { [weak self] status, title in
@@ -99,24 +99,42 @@ final class StatusMenu: NSObject {
 
     private func apply(status: RestoreStatus, title: String) {
         statusLine.title = title
-        let name: String
+        let badge: String?
         switch status {
-        case .recording: name = "waveform"
-        case .waitingForCommit: name = "keyboard.badge.ellipsis.fill"
-        case .paused: name = "keyboard"                 // 空心 = 关，macOS 惯例
-        case .audioUnavailable, .restoreFailed: name = "exclamationmark.triangle.fill"
-        default: name = "keyboard.fill"
+        case .recording: badge = "mic.fill"
+        case .waitingForCommit: badge = "ellipsis"
+        case .paused: badge = "pause.fill"
+        case .audioUnavailable, .restoreFailed: badge = "exclamationmark"
+        default: badge = nil
         }
-        statusItem.button?.image = Self.symbol(name)
+        statusItem.button?.image = Self.statusImage(badge: badge)
     }
 
-    /// 菜单栏图标按 HIG 用 SF Symbol 模板图：单色、随浅深色菜单栏反色、与系统图标同尺寸线宽。
-    private static func symbol(_ name: String) -> NSImage? {
-        let config = NSImage.SymbolConfiguration(pointSize: 16, weight: .medium)
-        let image = NSImage(systemSymbolName: name, accessibilityDescription: "InputGuard")?
-            .withSymbolConfiguration(config)
-        image?.isTemplate = true
+    /// 菜单栏图标：SF Symbol 实心键盘；有状态时按键区被镂空的状态符号替换。
+    /// 尺寸与系统 keyboard 符号完全一致，任何状态都不移动、不多占像素。模板图，随浅深色菜单栏反色。
+    private static func statusImage(badge: String?) -> NSImage? {
+        guard let keyboard = symbol("keyboard.fill", pointSize: 16, weight: .medium) else { return nil }
+        let image = NSImage(size: keyboard.size)
+        image.lockFocus()
+        keyboard.draw(at: .zero, from: .zero, operation: .sourceOver, fraction: 1)
+        if let badge, let glyph = symbol(badge, pointSize: 8.5, weight: .bold) {
+            // 盖住按键孔：圆角内矩形，留在键盘轮廓内
+            let inset: CGFloat = 2.2
+            let inner = NSRect(x: inset, y: inset, width: keyboard.size.width - inset * 2, height: keyboard.size.height - inset * 2)
+            NSColor.black.set()
+            NSBezierPath(roundedRect: inner, xRadius: 1.2, yRadius: 1.2).fill()
+            let origin = NSPoint(x: (keyboard.size.width - glyph.size.width) / 2, y: (keyboard.size.height - glyph.size.height) / 2)
+            glyph.draw(at: origin, from: .zero, operation: .destinationOut, fraction: 1)
+        }
+        image.unlockFocus()
+        image.isTemplate = true
+        image.accessibilityDescription = "InputGuard"
         return image
+    }
+
+    private static func symbol(_ name: String, pointSize: CGFloat, weight: NSFont.Weight) -> NSImage? {
+        let config = NSImage.SymbolConfiguration(pointSize: pointSize, weight: weight)
+        return NSImage(systemSymbolName: name, accessibilityDescription: nil)?.withSymbolConfiguration(config)
     }
 
     @objc private func restoreNow() { controller.restoreNow() }

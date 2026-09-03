@@ -1,5 +1,5 @@
 #!/bin/bash
-# 用系统 SF Symbol 渲染应用图标并生成 Resources/AppIcon.icns（方案 D：系统蓝 + 键盘 + 回转箭头）
+# 用系统 SF Symbol 渲染应用图标并生成 Resources/AppIcon.icns（系统蓝 + 居中键盘 + 右上角小回转箭头角标）
 set -euo pipefail
 cd "$(dirname "$0")/.."
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT

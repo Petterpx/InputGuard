@@ -38,11 +38,30 @@ func draw(_ name: String, pointSize: CGFloat, center: NSPoint, alpha: CGFloat = 
     tinted.draw(in: NSRect(x: center.x - sz.width / 2, y: center.y - sz.height / 2, width: sz.width, height: sz.height))
     NSGraphicsContext.restoreGraphicsState()
 }
+/// 渐变在某个 y 处的近似颜色（角标缺口和镂空符号用它填，视觉上等于露出背景）
+func bg(at y: CGFloat) -> NSColor {
+    let t = max(0, min(1, (y - tile.minY) / tile.height))
+    return color(bottom).blended(withFraction: t, of: color(top))!.blended(withFraction: 0.16 * t, of: .white)!
+}
+func tinted(_ name: String, pointSize: CGFloat, weight: NSFont.Weight, tint: NSColor) -> NSImage {
+    let cfg = NSImage.SymbolConfiguration(pointSize: pointSize, weight: weight)
+    let img = NSImage(systemSymbolName: name, accessibilityDescription: nil)!.withSymbolConfiguration(cfg)!
+    let t = NSImage(size: img.size); t.lockFocus()
+    img.draw(in: NSRect(origin: .zero, size: img.size)); tint.set(); NSRect(origin: .zero, size: img.size).fill(using: .sourceAtop)
+    t.unlockFocus(); return t
+}
+// 键盘严格居中（pointSize 400 → 600x400）；角标是右上角一个小的带缺口实心圆，圆内镂空符号
+let kbCenter = NSPoint(x: 512 * s, y: 512 * s)
+draw(symbol, pointSize: 400 * s, center: kbCenter)
 if let badge {
-    draw(symbol, pointSize: 340 * s, center: NSPoint(x: 512 * s, y: 575 * s))
-    draw(badge, pointSize: 170 * s, center: NSPoint(x: 512 * s, y: 330 * s), alpha: 0.92)
-} else {
-    draw(symbol, pointSize: 400 * s, center: NSPoint(x: 512 * s, y: 512 * s))
+    let u = 25 * s, r = 3.0 * u, gap = 1.1 * u
+    let kb = tinted(symbol, pointSize: 400 * s, weight: .medium, tint: .white)
+    let corner = NSPoint(x: kbCenter.x + kb.size.width / 2, y: kbCenter.y + kb.size.height / 2)
+    let c = NSPoint(x: corner.x - 1.2 * u, y: corner.y - 1.2 * u)
+    bg(at: c.y).set(); NSBezierPath(ovalIn: NSRect(x: c.x - r - gap, y: c.y - r - gap, width: (r + gap) * 2, height: (r + gap) * 2)).fill()
+    NSColor.white.set(); NSBezierPath(ovalIn: NSRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2)).fill()
+    let g = tinted(badge, pointSize: r * 1.25, weight: .bold, tint: bg(at: c.y))
+    g.draw(in: NSRect(x: c.x - g.size.width / 2, y: c.y - g.size.height / 2, width: g.size.width, height: g.size.height))
 }
 NSGraphicsContext.restoreGraphicsState()
 try! rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: out))
