@@ -35,7 +35,9 @@ ChaseMoneyChaseFame/doubao-wetype-bridge 采用「纯观察」模型：读 CoreA
 每 50 ms 轮询两个系统状态：当前输入源 ID（Carbon TIS）、豆包进程是否正在占用音频输入
 （CoreAudio `kAudioHardwarePropertyProcessObjectList` + `kAudioProcessPropertyPID` + `kAudioProcessPropertyIsRunningInput`）。
 
-1. 当前输入源不是豆包（ID 前缀不是 `com.bytedance.inputmethod.doubaoime`）时，记为 `lastNonDoubaoSourceID`。
+1. 当前输入源不是豆包（ID 前缀不是 `com.bytedance.inputmethod.doubaoime`），且连续观察 ≥ 0.5 s
+   （`sourceSettlePeriod`）时，记为 `lastNonDoubaoSourceID`。豆包唤起语音时输入源会先瞬间跳到 ABC
+   键盘布局再进豆包（实测 40~150 ms），稳定期用来排除这个瞬态源。
 2. 豆包音频输入从占用变为释放，且此前连续占用 ≥ 0.2 s（`recordingConfirmationPeriod`），进入宽限期。
 3. 宽限期（`gracePeriod`，默认 0.6 s）到期时，若当前输入源仍是豆包，切到 `lastNonDoubaoSourceID`。
    宽限期内音频再次被占用则取消宽限，回到录音中。宽限期内重入录音不需要再次满足 0.2 s 确认期。
@@ -105,7 +107,8 @@ ChaseMoneyChaseFame/doubao-wetype-bridge 采用「纯观察」模型：读 CoreA
 ## 测试
 
 单元测试（`swift test`）覆盖状态机：
-- 非豆包源持续更新 `lastNonDoubaoSourceID`
+- 非豆包源连续观察满稳定期才更新 `lastNonDoubaoSourceID`
+- 豆包唤起时瞬态跳到 ABC 不会成为切回目标
 - 录音 < 0.2 s 释放不触发
 - 录音 ≥ 0.2 s 释放，宽限到期且仍在豆包 → `.restore`
 - 宽限期内再次占用 → 取消

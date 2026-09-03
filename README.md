@@ -29,6 +29,8 @@
 
 每 50 ms 读一次 Carbon TIS 的当前输入源和 CoreAudio 的进程属性
 （`kAudioHardwarePropertyProcessObjectList` → `kAudioProcessPropertyIsRunningInput`）。
+非豆包输入源要连续待满 0.5 秒才被记为切回目标：豆包唤起语音时输入源会先瞬间跳到 ABC 再进豆包，
+不过滤的话说完会被切到 ABC 而不是你原来的输入法。
 状态机在 `Sources/VoiceRestoreCore/RestoreStateMachine.swift`，无系统依赖，`swift test` 可测。
 
 ## 致谢

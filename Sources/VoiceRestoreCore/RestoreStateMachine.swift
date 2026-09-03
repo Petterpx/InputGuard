@@ -3,15 +3,21 @@ import Foundation
 public struct RestoreConfig: Equatable {
     public var gracePeriod: TimeInterval
     public var recordingConfirmationPeriod: TimeInterval
+    /// 非豆包输入源要连续观察到这么久才记为切回目标。
+    /// 豆包唤起语音时输入源会先瞬间跳到 ABC 键盘布局再进豆包（实测 40~150 ms），
+    /// 不设稳定期的话这个瞬态 ABC 会被当成用户之前的输入法。
+    public var sourceSettlePeriod: TimeInterval
     public var doubaoPrefix: String
 
     public init(
         gracePeriod: TimeInterval = 0.6,
         recordingConfirmationPeriod: TimeInterval = 0.2,
+        sourceSettlePeriod: TimeInterval = 0.5,
         doubaoPrefix: String = "com.bytedance.inputmethod.doubaoime"
     ) {
         self.gracePeriod = gracePeriod
         self.recordingConfirmationPeriod = recordingConfirmationPeriod
+        self.sourceSettlePeriod = sourceSettlePeriod
         self.doubaoPrefix = doubaoPrefix
     }
 }
@@ -47,6 +53,8 @@ public struct RestoreStateMachine {
     }
 
     private var phase: Phase = .idle
+    /// 正在等待稳定期的非豆包源：从什么时候开始连续看到它。
+    private var settlingSource: (id: String, since: Date)?
 
     public init(config: RestoreConfig = RestoreConfig(), fallbackSourceID: String? = nil) {
         self.config = config
@@ -62,11 +70,24 @@ public struct RestoreStateMachine {
         status = success ? .restored(sourceID) : .restoreFailed(sourceID)
     }
 
+    private mutating func trackNonDoubaoSource(_ sourceID: String, isDoubao: Bool, at now: Date) {
+        guard !isDoubao, sourceID != lastNonDoubaoSourceID else {
+            settlingSource = nil
+            return
+        }
+        guard let settling = settlingSource, settling.id == sourceID else {
+            settlingSource = (sourceID, now)
+            return
+        }
+        if now.timeIntervalSince(settling.since) >= config.sourceSettlePeriod {
+            lastNonDoubaoSourceID = sourceID
+            settlingSource = nil
+        }
+    }
+
     public mutating func observe(sourceID: String, doubaoAudioActive: Bool?, at now: Date) -> RestoreAction {
         let isDoubao = sourceID.hasPrefix(config.doubaoPrefix)
-        if !isDoubao {
-            lastNonDoubaoSourceID = sourceID
-        }
+        trackNonDoubaoSource(sourceID, isDoubao: isDoubao, at: now)
 
         if paused {
             phase = .idle

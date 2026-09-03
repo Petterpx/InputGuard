@@ -9,27 +9,70 @@ final class RestoreStateMachineTests: XCTestCase {
     func t(_ seconds: TimeInterval) -> Date { t0.addingTimeInterval(seconds) }
 
     func makeMachine() -> RestoreStateMachine {
-        RestoreStateMachine(config: RestoreConfig(gracePeriod: 0.6, recordingConfirmationPeriod: 0.2))
+        RestoreStateMachine(config: RestoreConfig(
+            gracePeriod: 0.6, recordingConfirmationPeriod: 0.2, sourceSettlePeriod: 0.5
+        ))
     }
 
-    /// 把一段完整的录音周期喂进去：先在拼音，切到豆包，录 `duration` 秒，释放。
+    /// 把一段完整的录音周期喂进去：先在拼音待满稳定期，切到豆包，录 `duration` 秒，释放。
     /// 返回释放那一刻的动作。
     @discardableResult
     func runRecording(_ m: inout RestoreStateMachine, duration: TimeInterval) -> RestoreAction {
+        XCTAssertEqual(m.observe(sourceID: pinyin, doubaoAudioActive: false, at: t(-1)), .none)
         XCTAssertEqual(m.observe(sourceID: pinyin, doubaoAudioActive: false, at: t(0)), .none)
         XCTAssertEqual(m.observe(sourceID: doubao, doubaoAudioActive: false, at: t(0.05)), .none)
         XCTAssertEqual(m.observe(sourceID: doubao, doubaoAudioActive: true, at: t(0.10)), .none)
         return m.observe(sourceID: doubao, doubaoAudioActive: false, at: t(0.10 + duration))
     }
 
-    func testRemembersLastNonDoubaoSource() {
+    func testRemembersLastNonDoubaoSourceAfterSettling() {
         var m = makeMachine()
         _ = m.observe(sourceID: pinyin, doubaoAudioActive: false, at: t(0))
-        XCTAssertEqual(m.lastNonDoubaoSourceID, pinyin)
-        _ = m.observe(sourceID: doubao, doubaoAudioActive: false, at: t(0.05))
+        XCTAssertNil(m.lastNonDoubaoSourceID, "刚看到一眼不算数")
+        _ = m.observe(sourceID: pinyin, doubaoAudioActive: false, at: t(0.5))
+        XCTAssertEqual(m.lastNonDoubaoSourceID, pinyin, "持续 0.5s 才记录")
+        _ = m.observe(sourceID: doubao, doubaoAudioActive: false, at: t(0.55))
         XCTAssertEqual(m.lastNonDoubaoSourceID, pinyin, "切到豆包不应覆盖记录")
-        _ = m.observe(sourceID: "com.apple.keylayout.ABC", doubaoAudioActive: false, at: t(0.10))
+        _ = m.observe(sourceID: "com.apple.keylayout.ABC", doubaoAudioActive: false, at: t(0.60))
+        _ = m.observe(sourceID: "com.apple.keylayout.ABC", doubaoAudioActive: false, at: t(0.80))
+        XCTAssertEqual(m.lastNonDoubaoSourceID, pinyin, "ABC 还没待满稳定期")
+        _ = m.observe(sourceID: "com.apple.keylayout.ABC", doubaoAudioActive: false, at: t(1.10))
         XCTAssertEqual(m.lastNonDoubaoSourceID, "com.apple.keylayout.ABC")
+    }
+
+    /// 实机日志复现：豆包唤起语音时输入源先瞬间跳到 ABC 再进豆包（ABC 只停 40~150ms）。
+    /// 这个瞬态 ABC 不能被当成用户之前用的输入法，否则说完会被切到 ABC 而不是拼音。
+    func testTransientHopDuringDoubaoActivationIsNotRestoreTarget() {
+        var m = makeMachine()
+        let abc = "com.apple.keylayout.ABC"
+        _ = m.observe(sourceID: pinyin, doubaoAudioActive: false, at: t(-1))
+        _ = m.observe(sourceID: pinyin, doubaoAudioActive: false, at: t(0))
+        _ = m.observe(sourceID: abc, doubaoAudioActive: false, at: t(1.00))
+        _ = m.observe(sourceID: doubao, doubaoAudioActive: false, at: t(1.05))
+        _ = m.observe(sourceID: abc, doubaoAudioActive: false, at: t(1.10))
+        _ = m.observe(sourceID: abc, doubaoAudioActive: false, at: t(1.15))
+        _ = m.observe(sourceID: abc, doubaoAudioActive: false, at: t(1.20))
+        _ = m.observe(sourceID: doubao, doubaoAudioActive: false, at: t(1.25))
+        _ = m.observe(sourceID: doubao, doubaoAudioActive: true, at: t(1.30))
+        XCTAssertEqual(m.lastNonDoubaoSourceID, pinyin)
+        XCTAssertEqual(m.observe(sourceID: doubao, doubaoAudioActive: false, at: t(3.0)), .none)
+        XCTAssertEqual(m.observe(sourceID: doubao, doubaoAudioActive: false, at: t(3.65)), .restore(to: pinyin))
+    }
+
+    /// 离开豆包再回来，中断了稳定期计时：ABC 两段各 0.3s 不能拼成 0.6s。
+    func testSettleTimerResetsWhenLeavingSource() {
+        var m = makeMachine()
+        let abc = "com.apple.keylayout.ABC"
+        _ = m.observe(sourceID: pinyin, doubaoAudioActive: false, at: t(-1))
+        _ = m.observe(sourceID: pinyin, doubaoAudioActive: false, at: t(0))
+        _ = m.observe(sourceID: abc, doubaoAudioActive: false, at: t(1.0))
+        _ = m.observe(sourceID: abc, doubaoAudioActive: false, at: t(1.3))
+        _ = m.observe(sourceID: doubao, doubaoAudioActive: false, at: t(1.35))
+        _ = m.observe(sourceID: abc, doubaoAudioActive: false, at: t(1.4))
+        _ = m.observe(sourceID: abc, doubaoAudioActive: false, at: t(1.7))
+        XCTAssertEqual(m.lastNonDoubaoSourceID, pinyin)
+        _ = m.observe(sourceID: abc, doubaoAudioActive: false, at: t(1.9))
+        XCTAssertEqual(m.lastNonDoubaoSourceID, abc)
     }
 
     func testShortBlipDoesNotTriggerRestore() {
