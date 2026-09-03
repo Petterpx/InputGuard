@@ -1,4 +1,4 @@
-# DoubaoVoiceRestore 设计
+# InputGuard 设计
 
 日期：2026-09-03
 
@@ -61,7 +61,7 @@ ChaseMoneyChaseFame/doubao-wetype-bridge 采用「纯观察」模型：读 CoreA
 
 ## 组件
 
-### VoiceRestoreCore（库，无系统依赖）
+### InputGuardCore（库，无系统依赖）
 
 `RestoreStateMachine`：纯值类型状态机。
 
@@ -81,13 +81,13 @@ ChaseMoneyChaseFame/doubao-wetype-bridge 采用「纯观察」模型：读 CoreA
 
 `RestoreStateMachine` 只依赖传入的时间，便于测试。
 
-### DoubaoVoiceRestore（App 主目标）
+### InputGuard（App 主目标）
 
 - `InputSourceController`：TIS 读当前源 ID、枚举启用源、按 ID 选择。
 - `AudioInputMonitor`：CoreAudio 读豆包进程是否占用输入，移植自 doubao-wetype-bridge（MIT）。
 - `RestoreController`：50 ms `Timer`，把两个系统读数喂给状态机，执行 `.restore`，更新状态。
 - `StatusMenu`：`NSStatusItem` 菜单。
-- `RuntimeLog`：写 `~/Library/Logs/DoubaoVoiceRestore/runtime.log`，不记录文字与语音内容。
+- `RuntimeLog`：写 `~/Library/Logs/InputGuard/runtime.log`，不记录文字与语音内容。
 - `LaunchAtLogin`：`SMAppService.mainApp`。
 
 ### 菜单栏
@@ -102,9 +102,9 @@ ChaseMoneyChaseFame/doubao-wetype-bridge 采用「纯观察」模型：读 CoreA
 
 ### 打包
 
-- `Package.swift`：macOS 15，targets `VoiceRestoreCore`、`DoubaoVoiceRestore`、`VoiceRestoreCoreTests`。
-- `Scripts/build-app.sh`：`swift build -c release`，组装 `build/DoubaoVoiceRestore.app`
-  （`Info.plist` 设 `LSUIElement=true`，Bundle ID `dev.petterp.DoubaoVoiceRestore`），ad-hoc 签名。
+- `Package.swift`：macOS 15，targets `InputGuardCore`、`InputGuard`、`InputGuardCoreTests`。
+- `Scripts/build-app.sh`：`swift build -c release`，组装 `build/InputGuard.app`
+  （`Info.plist` 设 `LSUIElement=true`，Bundle ID `dev.petterp.InputGuard`），ad-hoc 签名。
 - README：安装、使用、原理、致谢。
 
 ## 测试

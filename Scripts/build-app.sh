@@ -2,7 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-APP_NAME="DoubaoVoiceRestore"
+APP_NAME="InputGuard"
 OUT_DIR="build"
 APP="$OUT_DIR/$APP_NAME.app"
 
@@ -17,6 +17,6 @@ cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 echo -n "APPL????" > "$APP/Contents/PkgInfo"
 
 IDENTITY="${CODE_SIGN_IDENTITY:--}"
-codesign --force --sign "$IDENTITY" --identifier "dev.petterp.DoubaoVoiceRestore" "$APP"
+codesign --force --sign "$IDENTITY" --identifier "dev.petterp.InputGuard" "$APP"
 codesign --verify --verbose=2 "$APP"
 echo "built: $APP"

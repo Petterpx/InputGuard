@@ -4,12 +4,12 @@ final class RuntimeLog {
     static let shared = RuntimeLog()
 
     let fileURL: URL
-    private let queue = DispatchQueue(label: "dev.petterp.DoubaoVoiceRestore.log")
+    private let queue = DispatchQueue(label: "dev.petterp.InputGuard.log")
     private let formatter: DateFormatter
 
     private init() {
         let dir = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Logs/DoubaoVoiceRestore", isDirectory: true)
+            .appendingPathComponent("Library/Logs/InputGuard", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         fileURL = dir.appendingPathComponent("runtime.log")
         formatter = DateFormatter()

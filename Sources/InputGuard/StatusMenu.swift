@@ -1,6 +1,6 @@
 import AppKit
 import Foundation
-import VoiceRestoreCore
+import InputGuardCore
 
 final class StatusMenu: NSObject {
     private let controller: RestoreController
@@ -16,7 +16,7 @@ final class StatusMenu: NSObject {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
         statusItem.button?.image = Self.symbol("keyboard.fill")
-        statusItem.button?.toolTip = "豆包回切"
+        statusItem.button?.toolTip = "InputGuard"
         statusItem.menu = buildMenu()
         controller.statusDidChange = { [weak self] status, title in
             DispatchQueue.main.async { self?.apply(status: status, title: title) }
@@ -113,7 +113,7 @@ final class StatusMenu: NSObject {
     /// 菜单栏图标按 HIG 用 SF Symbol 模板图：单色、随浅深色菜单栏反色、与系统图标同尺寸线宽。
     private static func symbol(_ name: String) -> NSImage? {
         let config = NSImage.SymbolConfiguration(pointSize: 16, weight: .medium)
-        let image = NSImage(systemSymbolName: name, accessibilityDescription: "豆包回切")?
+        let image = NSImage(systemSymbolName: name, accessibilityDescription: "InputGuard")?
             .withSymbolConfiguration(config)
         image?.isTemplate = true
         return image

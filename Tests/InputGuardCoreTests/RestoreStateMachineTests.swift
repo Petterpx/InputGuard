@@ -1,5 +1,5 @@
 import XCTest
-@testable import VoiceRestoreCore
+@testable import InputGuardCore
 
 final class RestoreStateMachineTests: XCTestCase {
     let doubao = "com.bytedance.inputmethod.doubaoime.pinyin"

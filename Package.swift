@@ -2,22 +2,22 @@
 import PackageDescription
 
 let package = Package(
-    name: "DoubaoVoiceRestore",
+    name: "InputGuard",
     platforms: [.macOS("15.0")],
     products: [
-        .executable(name: "DoubaoVoiceRestore", targets: ["DoubaoVoiceRestore"])
+        .executable(name: "InputGuard", targets: ["InputGuard"])
     ],
     targets: [
-        .target(name: "VoiceRestoreCore", path: "Sources/VoiceRestoreCore"),
+        .target(name: "InputGuardCore", path: "Sources/InputGuardCore"),
         .executableTarget(
-            name: "DoubaoVoiceRestore",
-            dependencies: ["VoiceRestoreCore"],
-            path: "Sources/DoubaoVoiceRestore"
+            name: "InputGuard",
+            dependencies: ["InputGuardCore"],
+            path: "Sources/InputGuard"
         ),
         .testTarget(
-            name: "VoiceRestoreCoreTests",
-            dependencies: ["VoiceRestoreCore"],
-            path: "Tests/VoiceRestoreCoreTests"
+            name: "InputGuardCoreTests",
+            dependencies: ["InputGuardCore"],
+            path: "Tests/InputGuardCoreTests"
         ),
     ]
 )

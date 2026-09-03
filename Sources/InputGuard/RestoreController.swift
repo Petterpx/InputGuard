@@ -1,5 +1,5 @@
 import Foundation
-import VoiceRestoreCore
+import InputGuardCore
 
 final class RestoreController {
     var statusDidChange: ((RestoreStatus, String) -> Void)?

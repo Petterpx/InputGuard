@@ -1,15 +1,15 @@
 <p align="center">
-  <img src="images/app-icon.png" width="128" alt="豆包回切图标">
+  <img src="images/app-icon.png" width="128" alt="InputGuard 图标">
 </p>
 
-<h1 align="center">豆包回切</h1>
+<h1 align="center">InputGuard</h1>
 
-<p align="center">豆包输入法语音说完后，自动切回你说话前用的输入法。</p>
+<p align="center">输入法守卫。豆包输入法语音说完后，自动切回你说话前用的输入法。</p>
 
 <p align="center">
-  <a href="https://github.com/Petterpx/DoubaoVoiceRestore/releases/latest"><img src="https://img.shields.io/github/v/release/Petterpx/DoubaoVoiceRestore?label=%E4%B8%8B%E8%BD%BD&color=0A5BD6" alt="最新版本"></a>
+  <a href="https://github.com/Petterpx/InputGuard/releases/latest"><img src="https://img.shields.io/github/v/release/Petterpx/InputGuard?label=%E4%B8%8B%E8%BD%BD&color=0A5BD6" alt="最新版本"></a>
   <img src="https://img.shields.io/badge/macOS-15%2B-blue" alt="macOS 15+">
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/Petterpx/DoubaoVoiceRestore?color=green" alt="MIT License"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/Petterpx/InputGuard?color=green" alt="MIT License"></a>
 </p>
 
 ---
@@ -31,11 +31,11 @@
 
 ## 安装
 
-1. 到 [Releases](https://github.com/Petterpx/DoubaoVoiceRestore/releases/latest) 下载 dmg，打开后把应用拖到「应用程序」。
+1. 到 [Releases](https://github.com/Petterpx/InputGuard/releases/latest) 下载 dmg，打开后把应用拖到「应用程序」。
 2. 首次打开会被 Gatekeeper 拦下（应用是本地签名，未经 Apple 公证）。右键点击应用选「打开」，或在终端执行：
 
    ```bash
-   xattr -d com.apple.quarantine /Applications/DoubaoVoiceRestore.app
+   xattr -d com.apple.quarantine /Applications/InputGuard.app
    ```
 
 3. 菜单栏出现键盘图标即已运行。
@@ -65,7 +65,7 @@
 | 切回前等待 | 0.4 / 0.6 / 1.0 秒。文字偶尔丢尾巴就调大 |
 | 切回到 | 默认「上一个使用的输入法」；也可以固定选一个，说完永远切到它 |
 | 开机启动 | 登录时自动运行 |
-| 打开日志 | `~/Library/Logs/DoubaoVoiceRestore/runtime.log`，只记录输入源和录音状态变化，不含任何输入内容 |
+| 打开日志 | `~/Library/Logs/InputGuard/runtime.log`，只记录输入源和录音状态变化，不含任何输入内容 |
 
 ## 原理
 
@@ -78,14 +78,14 @@
 
 非豆包输入源要连续观察 0.5 秒才记为切回目标。豆包唤起语音时输入源会先瞬间跳到 ABC 再进豆包，不过滤的话说完会被切到 ABC 而不是你原来的输入法。
 
-状态机在 `Sources/VoiceRestoreCore/RestoreStateMachine.swift`，纯 Swift、无系统依赖，`swift test` 可测。设计文档见 [docs/superpowers/specs](docs/superpowers/specs/)。
+状态机在 `Sources/InputGuardCore/RestoreStateMachine.swift`，纯 Swift、无系统依赖，`swift test` 可测。设计文档见 [docs/superpowers/specs](docs/superpowers/specs/)。
 
 ## 从源码构建
 
 ```bash
 swift test                 # 状态机单元测试
-./Scripts/build-app.sh     # 出 build/DoubaoVoiceRestore.app（ad-hoc 签名）
-./Scripts/make-dmg.sh      # 出 build/DoubaoVoiceRestore-<版本>.dmg
+./Scripts/build-app.sh     # 出 build/InputGuard.app（ad-hoc 签名）
+./Scripts/make-dmg.sh      # 出 build/InputGuard-<版本>.dmg
 ./Scripts/make-icns.sh     # 重新生成应用图标 Resources/AppIcon.icns
 ```
 

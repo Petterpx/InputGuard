@@ -3,14 +3,14 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleDevelopmentRegion</key><string>zh_CN</string>
-    <key>CFBundleExecutable</key><string>DoubaoVoiceRestore</string>
-    <key>CFBundleIdentifier</key><string>dev.petterp.DoubaoVoiceRestore</string>
-    <key>CFBundleName</key><string>DoubaoVoiceRestore</string>
-    <key>CFBundleDisplayName</key><string>豆包回切</string>
+    <key>CFBundleExecutable</key><string>InputGuard</string>
+    <key>CFBundleIdentifier</key><string>dev.petterp.InputGuard</string>
+    <key>CFBundleName</key><string>InputGuard</string>
+    <key>CFBundleDisplayName</key><string>InputGuard</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>0.1.1</string>
-    <key>CFBundleVersion</key><string>2</string>
+    <key>CFBundleShortVersionString</key><string>0.2.0</string>
+    <key>CFBundleVersion</key><string>3</string>
     <key>LSMinimumSystemVersion</key><string>15.0</string>
     <key>LSUIElement</key><true/>
     <key>NSHumanReadableCopyright</key><string>MIT License</string>
