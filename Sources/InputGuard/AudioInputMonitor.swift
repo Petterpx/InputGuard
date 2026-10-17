@@ -2,21 +2,19 @@ import AppKit
 import CoreAudio
 import Foundation
 
-/// 通过 CoreAudio 的进程对象列表判断豆包输入法进程是否正在使用音频输入。
+/// 通过 CoreAudio 的进程对象列表判断语音输入法进程是否正在使用音频输入。
 /// 只读系统属性，不申请麦克风权限，不录音。
 final class AudioInputMonitor {
-    private let doubaoBundleID = "com.bytedance.inputmethod.doubaoime"
-
-    /// true = 正在占用输入；false = 未占用或豆包未运行；nil = CoreAudio 读取失败。
-    func doubaoIsUsingAudioInput() -> Bool? {
+    /// true = 正在占用输入；false = 未占用或输入法未运行；nil = CoreAudio 读取失败。
+    func isUsingAudioInput(bundleID: String) -> Bool? {
         guard let objectIDs = processObjectIDs() else {
             return nil
         }
-        let doubaoPIDs = Set(
-            NSRunningApplication.runningApplications(withBundleIdentifier: doubaoBundleID)
+        let pids = Set(
+            NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
                 .map { UInt32(bitPattern: $0.processIdentifier) }
         )
-        for objectID in objectIDs where isDoubao(objectID: objectID, doubaoPIDs: doubaoPIDs) {
+        for objectID in objectIDs where belongs(objectID: objectID, to: bundleID, pids: pids) {
             if uint32Property(objectID: objectID, selector: kAudioProcessPropertyIsRunningInput) == 1 {
                 return true
             }
@@ -25,16 +23,16 @@ final class AudioInputMonitor {
     }
 
     /// 优先认 CoreAudio 自己报的 bundle ID（输入法进程常不在 `NSRunningApplication` 里），
-    /// 读不到时退回 PID 匹配。
-    private func isDoubao(objectID: AudioObjectID, doubaoPIDs: Set<UInt32>) -> Bool {
-        if let bundleID = stringProperty(objectID: objectID, selector: kAudioProcessPropertyBundleID),
-           bundleID.hasPrefix(doubaoBundleID) {
+    /// 读不到时退回 PID 匹配。按前缀认，录音放在辅助进程里的输入法也算。
+    private func belongs(objectID: AudioObjectID, to bundleID: String, pids: Set<UInt32>) -> Bool {
+        if let processBundleID = stringProperty(objectID: objectID, selector: kAudioProcessPropertyBundleID),
+           processBundleID.hasPrefix(bundleID) {
             return true
         }
         guard let pid = uint32Property(objectID: objectID, selector: kAudioProcessPropertyPID) else {
             return false
         }
-        return doubaoPIDs.contains(pid)
+        return pids.contains(pid)
     }
 
     private func processObjectIDs() -> [AudioObjectID]? {

@@ -5,11 +5,13 @@ import InputGuardCore
 final class StatusMenu: NSObject {
     private let controller: RestoreController
     private let statusItem: NSStatusItem
-    private let statusLine = NSMenuItem(title: "等待豆包语音", action: nil, keyEquivalent: "")
+    private let statusLine = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let pauseItem = NSMenuItem(title: "暂停自动切回", action: #selector(togglePause), keyEquivalent: "")
     private let launchItem = NSMenuItem(title: "开机启动", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
     private var graceItems: [(NSMenuItem, TimeInterval)] = []
+    private let customGraceItem = NSMenuItem(title: "自定义…", action: #selector(selectCustomGrace), keyEquivalent: "")
     private let targetMenu = NSMenu()
+    private let voiceMenu = NSMenu()
 
     init(controller: RestoreController) {
         self.controller = controller
@@ -37,15 +39,25 @@ final class StatusMenu: NSObject {
         pauseItem.state = controller.isPaused ? .on : .off
         menu.addItem(pauseItem)
 
+        // 每次展开时重建，理由同「切回到」。
+        voiceMenu.delegate = self
+        rebuildVoiceMenu()
+        let voiceParent = NSMenuItem(title: "语音输入法", action: nil, keyEquivalent: "")
+        voiceParent.submenu = voiceMenu
+        menu.addItem(voiceParent)
+
         let graceMenu = NSMenu()
-        for (label, seconds) in [("0.4 秒", 0.4), ("0.6 秒", 0.6), ("1.0 秒", 1.0)] {
-            let item = NSMenuItem(title: label, action: #selector(selectGrace(_:)), keyEquivalent: "")
+        for seconds in [0.4, 0.6, 1.0, 3.0, 5.0] {
+            let item = NSMenuItem(title: "\(Self.formatSeconds(seconds)) 秒", action: #selector(selectGrace(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = seconds
-            item.state = abs(Settings.shared.gracePeriod - seconds) < 0.001 ? .on : .off
             graceMenu.addItem(item)
             graceItems.append((item, seconds))
         }
+        graceMenu.addItem(.separator())
+        customGraceItem.target = self
+        graceMenu.addItem(customGraceItem)
+        refreshGraceMenu()
         let graceParent = NSMenuItem(title: "切回前等待", action: nil, keyEquivalent: "")
         graceParent.submenu = graceMenu
         menu.addItem(graceParent)
@@ -97,6 +109,26 @@ final class StatusMenu: NSObject {
         }
     }
 
+    private func rebuildVoiceMenu() {
+        voiceMenu.removeAllItems()
+        let current = controller.voiceSourceID
+        var methods = controller.availableVoiceSources()
+        if !methods.contains(where: { $0.id == current }) {
+            methods.append(InputSourceInfo(id: current, name: "\(controller.voiceSourceName)（未启用）"))
+        }
+        for method in methods {
+            let item = NSMenuItem(title: method.name, action: #selector(selectVoice(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = method.id
+            item.state = method.id == current ? .on : .off
+            voiceMenu.addItem(item)
+        }
+        voiceMenu.addItem(.separator())
+        let hint = NSMenuItem(title: "只列已启用的输入法，没看到就先去系统设置添加", action: nil, keyEquivalent: "")
+        hint.isEnabled = false
+        voiceMenu.addItem(hint)
+    }
+
     private func apply(status: RestoreStatus, title: String) {
         statusLine.title = title
         let badge: String?
@@ -104,7 +136,7 @@ final class StatusMenu: NSObject {
         case .recording: badge = "mic.fill"
         case .waitingForCommit: badge = "ellipsis"
         case .paused: badge = "pause.fill"
-        case .audioUnavailable, .restoreFailed: badge = "exclamationmark"
+        case .audioUnavailable, .restoreFailed, .voiceSourceUnavailable: badge = "exclamationmark"
         default: badge = nil
         }
         statusItem.button?.image = Self.statusImage(badge: badge)
@@ -150,12 +182,67 @@ final class StatusMenu: NSObject {
         rebuildTargetMenu()
     }
 
+    @objc private func selectVoice(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String else { return }
+        controller.setVoiceSource(id)
+        rebuildVoiceMenu()
+    }
+
     @objc private func selectGrace(_ sender: NSMenuItem) {
         guard let seconds = sender.representedObject as? TimeInterval else { return }
         controller.setGracePeriod(seconds)
-        for (item, value) in graceItems {
-            item.state = abs(value - seconds) < 0.001 ? .on : .off
+        refreshGraceMenu()
+    }
+
+    @objc private func selectCustomGrace() {
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
+        field.stringValue = Self.formatSeconds(Settings.shared.gracePeriod)
+        field.placeholderString = "例如 2.5"
+
+        let alert = NSAlert()
+        alert.messageText = "自定义切回前等待"
+        alert.informativeText = "输入 \(Self.formatSeconds(Self.customGraceRange.lowerBound))～\(Self.formatSeconds(Self.customGraceRange.upperBound)) 之间的秒数。"
+        alert.accessoryView = field
+        alert.addButton(withTitle: "确定")
+        alert.addButton(withTitle: "取消")
+        alert.window.initialFirstResponder = field
+        // 菜单栏应用没有前台窗口，不激活的话弹窗拿不到键盘焦点。
+        NSApp.activate(ignoringOtherApps: true)
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+        let text = field.stringValue.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "。", with: ".")
+        guard let seconds = Double(text), Self.customGraceRange.contains(seconds) else {
+            let error = NSAlert()
+            error.messageText = "无效的等待时间"
+            error.informativeText = "请输入 \(Self.formatSeconds(Self.customGraceRange.lowerBound))～\(Self.formatSeconds(Self.customGraceRange.upperBound)) 之间的数字。"
+            error.runModal()
+            return
         }
+        controller.setGracePeriod(seconds)
+        refreshGraceMenu()
+    }
+
+    private static let customGraceRange: ClosedRange<TimeInterval> = 0.1...30
+
+    /// 勾选当前值；不在预设里时勾「自定义」并把数值写进标题。
+    private func refreshGraceMenu() {
+        let current = Settings.shared.gracePeriod
+        var matched = false
+        for (item, value) in graceItems {
+            let isOn = abs(value - current) < 0.001
+            item.state = isOn ? .on : .off
+            matched = matched || isOn
+        }
+        customGraceItem.state = matched ? .off : .on
+        customGraceItem.title = matched ? "自定义…" : "自定义（\(Self.formatSeconds(current)) 秒）…"
+    }
+
+    private static func formatSeconds(_ seconds: TimeInterval) -> String {
+        let formatter = NumberFormatter()
+        formatter.minimumFractionDigits = 1
+        formatter.maximumFractionDigits = 2
+        formatter.minimumIntegerDigits = 1
+        return formatter.string(from: NSNumber(value: seconds)) ?? "\(seconds)"
     }
 
     @objc private func toggleLaunchAtLogin() {
@@ -183,7 +270,11 @@ final class StatusMenu: NSObject {
 
 extension StatusMenu: NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
-        guard menu === targetMenu else { return }
-        rebuildTargetMenu()
+        if menu === targetMenu {
+            rebuildTargetMenu()
+        } else if menu === voiceMenu {
+            controller.refreshVoiceSourceAvailability()
+            rebuildVoiceMenu()
+        }
     }
 }

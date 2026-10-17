@@ -8,12 +8,17 @@ if CommandLine.arguments.contains("--probe") {
     for s in sources.enabledSources() {
         print("  \(s.id)  [\(s.name)]")
     }
-    print("fallback: \(sources.firstNonDoubaoEnabledID() ?? "nil")")
+    print("input methods:")
+    for m in sources.enabledInputMethods() {
+        print("  \(m.id)  [\(m.name)]")
+    }
+    let voice = Settings.shared.voiceSourceID
+    print("voice: \(voice)")
     print("probing for 8s (100ms)...")
     let end = Date().addingTimeInterval(8)
     var last = ""
     while Date() < end {
-        let line = "source=\(sources.currentID())  doubaoAudio=\(String(describing: audio.doubaoIsUsingAudioInput()))"
+        let line = "source=\(sources.currentID())  voiceAudio=\(String(describing: audio.isUsingAudioInput(bundleID: voice)))"
         if line != last {
             print(line)
             last = line

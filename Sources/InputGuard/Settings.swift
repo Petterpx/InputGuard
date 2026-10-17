@@ -7,6 +7,7 @@ final class Settings {
     private let gracePeriodKey = "gracePeriod"
     private let pausedKey = "paused"
     private let pinnedSourceIDKey = "pinnedSourceID"
+    private let voiceSourceIDKey = "voiceSourceID"
 
     var gracePeriod: TimeInterval {
         get {
@@ -28,5 +29,14 @@ final class Settings {
             return value?.isEmpty == false ? value : nil
         }
         set { defaults.set(newValue, forKey: pinnedSourceIDKey) }
+    }
+
+    /// 语音输入法的 bundle ID；没设置过时是豆包。
+    var voiceSourceID: String {
+        get {
+            let value = defaults.string(forKey: voiceSourceIDKey)
+            return value?.isEmpty == false ? value! : InputSourceController.doubaoBundleID
+        }
+        set { defaults.set(newValue, forKey: voiceSourceIDKey) }
     }
 }

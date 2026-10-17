@@ -7,7 +7,7 @@ struct InputSourceInfo: Equatable {
 }
 
 final class InputSourceController {
-    static let doubaoPrefix = "com.bytedance.inputmethod.doubaoime"
+    static let doubaoBundleID = "com.bytedance.inputmethod.doubaoime"
 
     func currentID() -> String {
         guard let source = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() else {
@@ -30,17 +30,30 @@ final class InputSourceController {
         }
     }
 
+    /// 已启用的第三方输入法，每个输入法应用一项（不按拼音、五笔等输入模式拆开），`id` 是 bundle ID。
+    /// 键盘布局没有自己的进程，不可能占用麦克风；系统自带输入法没有语音输入。两者都不列。
+    func enabledInputMethods() -> [InputSourceInfo] {
+        let methodTypes: Set<String> = [
+            kTISTypeKeyboardInputMethodModeEnabled as String,
+            kTISTypeKeyboardInputMethodWithoutModes as String,
+        ]
+        var seen = Set<String>()
+        return allSources().compactMap { source in
+            guard boolProperty(source, kTISPropertyInputSourceIsEnabled),
+                  let type = stringProperty(source, kTISPropertyInputSourceType), methodTypes.contains(type),
+                  let bundleID = stringProperty(source, kTISPropertyBundleID),
+                  !bundleID.hasPrefix("com.apple."),
+                  seen.insert(bundleID).inserted
+            else {
+                return nil
+            }
+            return InputSourceInfo(id: bundleID, name: stringProperty(source, kTISPropertyLocalizedName) ?? bundleID)
+        }
+    }
+
     func localizedName(for id: String) -> String {
-        allSources().first { stringProperty($0, kTISPropertyInputSourceID) == id }
-            .flatMap { stringProperty($0, kTISPropertyLocalizedName) } ?? id
-    }
-
-    func firstNonDoubaoEnabledID() -> String? {
-        enabledSources().first { !$0.id.hasPrefix(Self.doubaoPrefix) }?.id
-    }
-
-    func nonDoubaoEnabledSources() -> [InputSourceInfo] {
-        enabledSources().filter { !$0.id.hasPrefix(Self.doubaoPrefix) }
+        allSources(includeAllInstalled: true).first { stringProperty($0, kTISPropertyInputSourceID) == id }
+            .flatMap { stringProperty($0, kTISPropertyLocalizedName) } ?? (id == Self.doubaoBundleID ? "豆包输入法" : id)
     }
 
     func isEnabled(id: String) -> Bool {
@@ -58,8 +71,8 @@ final class InputSourceController {
     // MARK: - Private
 
     /// 每次都重新取列表：用户可能随时在系统设置里增删输入源。TIS 调用开销很小。
-    private func allSources() -> [TISInputSource] {
-        guard let list = TISCreateInputSourceList(nil, false)?.takeRetainedValue() as? [TISInputSource] else {
+    private func allSources(includeAllInstalled: Bool = false) -> [TISInputSource] {
+        guard let list = TISCreateInputSourceList(nil, includeAllInstalled)?.takeRetainedValue() as? [TISInputSource] else {
             return []
         }
         return list
