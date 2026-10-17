@@ -8,6 +8,7 @@
 
 <p align="center">
   <a href="https://github.com/Petterpx/InputGuard/releases/latest"><img src="https://img.shields.io/github/v/release/Petterpx/InputGuard?label=%E4%B8%8B%E8%BD%BD&color=0A5BD6" alt="最新版本"></a>
+  <a href="https://github.com/Petterpx/InputGuard/actions/workflows/ci.yml"><img src="https://github.com/Petterpx/InputGuard/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/macOS-15%2B-blue" alt="macOS 15+">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/Petterpx/InputGuard?color=green" alt="MIT License"></a>
 </p>
@@ -44,6 +45,16 @@ InputGuard 在菜单栏里守着：豆包录音一结束，等文字上屏，自
 | 切回到 | 默认切回上一个使用的输入法，也可以固定选一个（不含选作语音输入法的那个） |
 | 开机启动 | 登录时自动运行 |
 | 打开日志 | `~/Library/Logs/InputGuard/runtime.log`，不含任何输入内容 |
+
+## 构建与发布
+
+```bash
+swift test                                          # 跑测试
+Scripts/build-app.sh && Scripts/make-dmg.sh         # 本地打包到 build/
+```
+
+发版：改 `Resources/Info.plist` 里的版本号并推到 main，然后在 GitHub 上用 `v<版本号>` 作 tag 发布 Release。
+Actions 会自动测试、打 dmg、上传到这个 Release，并在说明末尾补上安装步骤。版本号以 tag 为准。
 
 ## License
 

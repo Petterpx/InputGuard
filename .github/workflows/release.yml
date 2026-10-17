@@ -1,0 +1,69 @@
+# 在 GitHub 上发布 Release 后自动打 dmg 上传到该 Release 的产物里。
+# 版本号以 tag 为准（v0.3.0 → 0.3.0），构建时写进 Info.plist。
+# 已有的 Release 想重新打包：Actions → Release → Run workflow，填 tag。
+name: Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 要重新打包的 tag，例如 v0.3.0
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  dmg:
+    runs-on: macos-15
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: Set version from tag
+        run: |
+          VERSION="${TAG#v}"
+          PLIST=Resources/Info.plist
+          CURRENT="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST")"
+          if [ "$CURRENT" != "$VERSION" ]; then
+            echo "::warning::Info.plist 里是 $CURRENT，tag 是 $TAG，按 tag 打包。记得把仓库里的 Info.plist 也改过来。"
+            /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$PLIST"
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Test
+        run: swift test
+
+      - name: Build dmg
+        run: |
+          Scripts/build-app.sh
+          Scripts/make-dmg.sh
+
+      - name: Upload to release
+        run: gh release upload "$TAG" "build/InputGuard-$VERSION.dmg" --clobber
+
+      - name: Append install notes
+        run: |
+          BODY="$(gh release view "$TAG" --json body --jq .body)"
+          if ! grep -q '^## 安装' <<< "$BODY"; then
+            cat > notes.md <<EOF
+          $BODY
+
+          ## 安装
+
+          下载 \`InputGuard-$VERSION.dmg\`，打开后把 InputGuard 拖到「应用程序」。首次打开被 Gatekeeper 拦下时，右键选「打开」，或执行：
+
+          \`\`\`
+          xattr -d com.apple.quarantine /Applications/InputGuard.app
+          \`\`\`
+
+          要求 macOS 15 或更新。
+          EOF
+            gh release edit "$TAG" --notes-file notes.md
+          fi
